@@ -19,7 +19,19 @@ Now it is still in development mode.
     wget -nv https://gist.github.com/matlabbe/0bce8feeb73a499a76afbbcc5c687221/raw/e7fbf0e301cfea417a7aa69989a761a4de08b8c3/CMakeLists.txt
     ```
     then compile it with cmake and install it with prefix `/opt/android`.
+6. handle the `std::to_string` not found error in `kindr/common/source_file_pos.hpp`, add following code to the file.
+    ```
+    namespace std {
+        template <typename T>
+        string to_string(T value) {
+          std::ostringstream os ;
+          os << value ;
+          return os.str() ;
+        }
+    }
+    ```
 
 ## Platform
 Mac OS X 10.12.4 with Android Studio 2.3.1.
+Ubuntu 14.04 with Android Studio 2.3.1.
 
