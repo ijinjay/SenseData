@@ -3,16 +3,23 @@ package io.github.jinjaysnow.sensedata;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.media.Image;
+import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.content.ServiceConnection;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -23,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private GLSurfaceView mGLView;
+    private GLSurfaceView.Renderer mRenderer;
     // tango服务绑定
     public static final boolean bindTangoService(final Context context, ServiceConnection connection) {
         Intent intent = new Intent();
@@ -64,10 +72,28 @@ public class MainActivity extends AppCompatActivity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
 
-//        mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
 
         // 初始化Tango和IMU传感器
         TangoJniNative.onCreate(this);
+
+        mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
+        mRenderer = new GLSurfaceView.Renderer() {
+            @Override
+            public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+                TangoJniNative.onSurfaceCreated();
+            }
+
+            @Override
+            public void onSurfaceChanged(GL10 gl, int width, int height) {
+                TangoJniNative.onSurfaceChanged(width, height);
+            }
+
+            @Override
+            public void onDrawFrame(GL10 gl) {
+                TangoJniNative.render();
+            }
+        };
+        mGLView.setRenderer(mRenderer);
     }
 
     @Override
@@ -77,18 +103,19 @@ public class MainActivity extends AppCompatActivity {
         bindTangoService(this, mTangoServiceConnection);
         // IMU数据
         TangoJniNative.onResume();
+        mGLView.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        mGLView.onPause();
         TangoJniNative.onPause();
         unbindService(mTangoServiceConnection);
     }
 
-    @Override
-    protected void onStop(){
-        super.onStop();
+    private void setDisplayRotation() {
+        Display display = getWindowManager().getDefaultDisplay();
+        TangoJniNative.onDisplayChanged(display.getRotation());
     }
-
 }

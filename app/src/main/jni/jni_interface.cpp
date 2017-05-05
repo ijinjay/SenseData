@@ -1,10 +1,5 @@
 #include <jni.h>
 #include "../cpp/SenseDataApp.h"
-#include <android/log.h>
-
-#define  LOG_TAG    "SenseDataApp"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 static SenseDataApp app;
 
@@ -26,5 +21,23 @@ extern "C" {
     JNIEXPORT void JNICALL
     Java_io_github_jinjaysnow_sensedata_TangoJniNative_onResume(JNIEnv* env, jobject) {
         app.onResume();
+    }
+
+    JNIEXPORT void JNICALL
+    Java_io_github_jinjaysnow_sensedata_TangoJniNative_onDisplayChanged(JNIEnv* env, jobject, jint display_rotaion) {
+        app.OnDisplayChanged(display_rotaion);
+    }
+
+    JNIEXPORT void JNICALL
+    Java_io_github_jinjaysnow_sensedata_TangoJniNative_onSurfaceCreated(JNIEnv* env, jobject) {
+        app.onGLSurfaceCreated();
+    }
+    JNIEXPORT void JNICALL
+    Java_io_github_jinjaysnow_sensedata_TangoJniNative_onSurfaceChanged(JNIEnv* env, jobject, jint width, jint height) {
+        app.onGLSurfaceChanged(width, height);
+    }
+    JNIEXPORT void JNICALL
+    Java_io_github_jinjaysnow_sensedata_TangoJniNative_render(JNIEnv* env, jobject) {
+        app.render();
     }
 }

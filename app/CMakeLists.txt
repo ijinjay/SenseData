@@ -10,7 +10,12 @@ include_directories(src/lib_tango_client_api/include
                     src/main/cpp
                     lightweight_filtering/include
                     ${CMAKE_CURRENT_SOURCE_DIR}
-                    /opt/android/include )
+                    /opt/android/include
+                    tango_gl/include
+                    third_party/glm
+                    third_party/libpng/include
+                    third_party/libfreetype/include
+                    )
 
 add_library( sense-data-app
              SHARED
@@ -64,17 +69,31 @@ add_library(rovio
             # rovio/Scene.cpp 不需要Scene
             )
 
+# 添加Boost库
+set(Boost_DIR /opt/android/lib/cmake/Boost)
+find_package(Boost)
+
+# 指定Boost库路径属性
+foreach(__boost_component ${Boost_LIBRARIES})
+    add_library(${__boost_component} STATIC IMPORTED)
+    set_target_properties(${__boost_component} PROPERTIES IMPORTED_LOCATION /opt/android/lib/lib${__boost_component}.a)
+endforeach()
+
 target_link_libraries( rovio
                        yaml-cpp
                        ${OpenCV_LIBS}
+                       ${Boost_LIBRARIES}
                        )
+
+# 添加tango-gl库
+add_subdirectory(tango_gl)
 
 target_link_libraries( sense-data-app
                        android
                        ${log-lib}
                        Tango_LIBRARY
                        Tango_support_LIBRARY
-                       ${OpenCV_LIBS}
-                       yaml-cpp
                        rovio
+                       # ${Pangolin_LIBRARY}
+                       tango_gl
                      )

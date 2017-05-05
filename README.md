@@ -32,6 +32,6 @@ Now it is still in development mode.
     ```
 
 ## Platform
-Mac OS X 10.12.4 with Android Studio 2.3.1.
+Mac OS X 10.12.4 with Android Studio 2.3.1.  
 Ubuntu 14.04 with Android Studio 2.3.1.
 
