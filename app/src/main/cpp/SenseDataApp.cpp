@@ -16,6 +16,7 @@
 #include <rovio/Camera.hpp>
 #include <rovio/RovioFilter.hpp>
 #include <thread>
+#include <android/asset_manager.h>
 
 #ifdef ROVIO_NMAXFEATURE
 static constexpr int nMax_ = ROVIO_NMAXFEATURE;
@@ -316,8 +317,19 @@ public:
             LOGI("Calibration paras: cx:%lf, cy:%lf, fx:%lf, fy: %lf, h:%u, w: %u, k0: %lf, k1: %lf, k2:%lf, k3:%lf, k4:%lf",
                  ci.cx, ci.cy, ci.fx, ci.fy, ci.height, ci.width, ci.distortion[0], ci.distortion[1], ci.distortion[2], ci.distortion[3], ci.distortion[4]);
         }
-        gTangoCamera.setTangoCamera();
-        LOGI("---set instrinsics---");
+        TangoPoseData cToIMUPose;
+        TangoCoordinateFramePair cToIMUPair;
+        cToIMUPair.base = TANGO_COORDINATE_FRAME_IMU;
+        cToIMUPair.target = TANGO_COORDINATE_FRAME_CAMERA_COLOR;
+        TangoService_getPoseAtTime(0.0, cToIMUPair, &cToIMUPose);
+        LOGI("---camera2IMU translation: %lf, %lf, %lf", cToIMUPose.translation[0],
+                                   cToIMUPose.translation[1],
+                                   cToIMUPose.translation[2]);
+        LOGI("----camera2IMU rotation:%lf, %lf, %lf, %lf", cToIMUPose.orientation[3],
+                                       cToIMUPose.orientation[0],
+                                       cToIMUPose.orientation[1],
+                                       cToIMUPose.orientation[2]);
+
     };
 
     void onPause() {
@@ -331,7 +343,8 @@ public:
 // 定义全局数据访问
 IMUData gIMUData;
 CameraData gCameraData;
-
+// 全局滤波器
+std::shared_ptr<mtFilter> mpFilter(new mtFilter);
 
 /* SensorDataApp */
 SenseDataApp::SenseDataApp(){
@@ -340,9 +353,51 @@ SenseDataApp::SenseDataApp(){
 SenseDataApp::~SenseDataApp(){
 }
 
+typedef typename mtFilter::mtFilterState mtFilterState;
+typedef typename mtFilterState::mtState mtState;
+typedef typename mtFilter::mtPrediction::mtMeas mtPredictionMeas;
+mtPredictionMeas predictionMeas_;
+typedef typename std::tuple_element<0,typename mtFilter::mtUpdates>::type mtImgUpdate;
+typedef typename mtImgUpdate::mtMeas mtImgMeas;
+mtImgMeas imgUpdateMeas_;
+mtImgUpdate* mpImgUpdate_;
+typedef typename std::tuple_element<1,typename mtFilter::mtUpdates>::type mtPoseUpdate;
+typedef typename mtPoseUpdate::mtMeas mtPoseMeas;
+mtPoseMeas poseUpdateMeas_;
+mtPoseUpdate* mpPoseUpdate_;
+typedef typename std::tuple_element<2,typename mtFilter::mtUpdates>::type mtVelocityUpdate;
+typedef typename mtVelocityUpdate::mtMeas mtVelocityMeas;
+mtVelocityMeas velocityUpdateMeas_;
+
+
+void makeTest(){
+    LOGI("-----0");
+    mtFilterState* mpTestFilterState = new mtFilterState();
+    *mpTestFilterState = mpFilter->init_;
+    LOGI("-----1");
+    mpTestFilterState->setCamera(&mpFilter->multiCamera_);
+    mtState& testState = mpTestFilterState->state_;
+    unsigned int s = 2;
+    testState.setRandom(s);
+    predictionMeas_.setRandom(s);
+    imgUpdateMeas_.setRandom(s);
+    LOGI("-----3");
+    delete mpTestFilterState;
+}
+
 void SenseDataApp::onCreate(JNIEnv *env, jobject activity) {
     gIMUData.init(this);
     gCameraData.onCreate(env, activity, this);
+
+    gTangoCamera.setTangoCamera();
+
+
+    // 读取rovio配置文件
+    // 初始化滤波器
+    mpFilter->readFromInfo("/sdcard/rovio.info");
+    mpFilter->refreshProperties();
+    LOGI("depth type %d", mpFilter->depthTypeInt_);
+//    makeTest();
 
     // 初始化变量
     is_yuv_texture_available_ = false;
@@ -353,6 +408,7 @@ void SenseDataApp::onCreate(JNIEnv *env, jobject activity) {
     yuv_drawable_ = NULL;
     is_video_overlay_rotation_set_ = false;
     current_texture_method_ = TextureMethod::kYuv;
+    isCalibrationMode = false;
     isInCalibration = false;
     shouldCalibration = false;
 }
@@ -533,9 +589,9 @@ void SenseDataApp::RenderYuv() {
 
 void SenseDataApp::onFrameAvailable(const TangoImageBuffer *buffer, cv::Mat gray){
 
-    // 复制到grayImage中
     if (!gray.empty()) {
-        if(!isInCalibration) {
+        // 获取相机标定
+        if(!isInCalibration && isCalibrationMode) {
             grayImage = gray.clone();
             {
                 std::lock_guard<std::mutex> lock(calibration_mutex);

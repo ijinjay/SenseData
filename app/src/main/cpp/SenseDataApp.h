@@ -71,6 +71,7 @@ private:
     void DeleteDrawables();
 
     // 用于获取用于标定的图像
+    bool isCalibrationMode = false;
     cv::Mat grayImage;
     std::atomic<bool> isInCalibration;
     std::atomic<bool> shouldCalibration;
